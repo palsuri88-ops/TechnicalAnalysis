@@ -1,0 +1,107 @@
+---
+title: "Technical Analysis using R – Preliminary Stage"
+subtitle: "BDA400 Assignment 2"
+author: "Surinder Pal"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# 1. Load packages and functions
+
+All functions live in `stock_functions.R`. `setup_packages()` installs any missing package and loads `quantmod`, `TTR`, `xts` and `zoo`.
+
+```{r packages}
+source("stock_functions.R")
+setup_packages()
+```
+
+# 2. Portfolio
+
+The symbols are read from `portfolio.txt` (one symbol per line).
+
+```{r portfolio}
+symbols <- read_portfolio("portfolio.txt")
+symbols
+```
+
+# 3. Import stock data
+
+`load_stock_data()` downloads one year of daily prices from Yahoo Finance for every symbol and stores each one as a separate data frame inside a named list.
+
+```{r load}
+stocks <- load_stock_data("portfolio.txt")
+names(stocks)
+str(stocks[[1]])
+```
+
+Each stock is also available as its own data frame, for example:
+
+```{r separate-dfs}
+AAPL_df <- stocks[["AAPL"]]
+head(AAPL_df)
+```
+
+# 4. Display the imported data
+
+```{r display}
+display_all_stocks(stocks, n = 5)
+```
+
+## Latest quote (Yahoo Finance style)
+
+```{r quotes}
+for (sym in names(stocks)) display_quote(stocks[[sym]], sym)
+```
+
+# 5. Basic statistics
+
+`calculate_all_statistics()` runs `calculate_statistics()` on each stock's **closing price** and returns the mean, median, mode (rounded to the nearest dollar), standard deviation, min, max, latest price and the 20- and 50-day simple moving averages.
+
+```{r stats}
+results <- calculate_all_statistics(stocks)
+knitr::kable(results$summary, caption = "Summary statistics of closing prices (last 12 months)")
+```
+
+Moving-average columns added to each data frame:
+
+```{r ma-preview}
+tail(results$data[["AAPL"]][, c("Date", "Close", "SMA20", "SMA50")], 10)
+```
+
+# 6. Visualizations
+
+## Closing price with moving averages
+
+```{r line-plots, fig.width=8, fig.height=4}
+for (sym in names(results$data)) plot_stock(results$data[[sym]], sym)
+```
+
+## Candlestick chart (last 6 months)
+
+```{r candles, fig.width=8, fig.height=5}
+plot_candles("AAPL")
+```
+
+## Comparing average price and volatility
+
+```{r compare, fig.width=8, fig.height=4}
+s <- results$summary
+par(mfrow = c(1, 2))
+barplot(s$Mean, names.arg = s$Symbol, main = "Mean Closing Price", col = "steelblue", las = 2)
+barplot(s$SD,   names.arg = s$Symbol, main = "Standard Deviation",  col = "tomato",    las = 2)
+par(mfrow = c(1, 1))
+```
+
+# 7. Notes
+
+- Data source: Yahoo Finance through `quantmod::getSymbols()`. Prices are in USD.
+- Results change each day because the date range is always the last 12 months.
+- Mode is calculated on prices rounded to whole dollars, because exact prices rarely repeat.
